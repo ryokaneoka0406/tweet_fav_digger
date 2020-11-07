@@ -1,3 +1,5 @@
+import urllib.request
+
 import requests
 import pytest
 
@@ -13,9 +15,12 @@ class MockResponseGetLikesByScreenname:
     @staticmethod
     def json():
         return [
-            {"id": 1067094924124872705},
-            {"id": 1067094924124872706},
-            {"id": 1067094924124872707}]
+            {"text": """日本国民は、正当に選挙された国会における代表者を通じて行動し、
+            われらとわれらの子孫のために、諸国民との協和による成果と、わが国全土にわたつて
+            自由のもたらす恵沢を確保し、政府の行為によつて再び戦争の惨禍"""},
+            {"text": """Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+            Etiam tempor laoreet velit ut feugiat. 
+            Phasellus lobortis nisi."""}]
 
     @staticmethod
     def status_code():
@@ -31,43 +36,14 @@ def mock_response_fav_list(monkeypatch):
 
 
 def test_get_json(mock_response_fav_list):
-    result = tweet_fav.get_like_lists(3, "ryopenguin")
-    assert result == [1067094924124872705,
-                      1067094924124872706, 1067094924124872707]
-
-
-class MockResponseGetTweetByID:
-    """
-    mock of GET /2/tweets/:id
-    References:
-    https://developer.twitter.com/en/docs/twitter-api/tweets/lookup/api-reference/get-tweets-id
-    """
-    @staticmethod
-    def json():
-        return {
-            "data": {
-                "id": "1067094924124872705",
-                "text": "mock_response"
-            }
-        }
-
-    @staticmethod
-    def status_code():
-        return 200
-
-
-@pytest.fixture
-def mock_response_get_tweet(monkeypatch):
-    def mock_get(*args, **kwargs):
-        return MockResponseGetTweetByID()
-
-    monkeypatch.setattr(requests, "get", mock_get)
-
-
-def test_get_tweet_from_id(mock_response_get_tweet):
-    id = 1128358947772145672
-    result = tweet_fav.get_tweet_from_id(id)
-    assert result == "mock_response"
+    result = tweet_fav.get_like_text_list(2, "ryopenguin")
+    assert result == ["""日本国民は、正当に選挙された国会における代表者を通じて行動し、
+            われらとわれらの子孫のために、諸国民との協和による成果と、わが国全土にわたつて
+            自由のもたらす恵沢を確保し、政府の行為によつて再び戦争の惨禍""",
+                      """Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+            Etiam tempor laoreet velit ut feugiat. 
+            Phasellus lobortis nisi."""
+                      ]
 
 
 def test_get_url_list_from_text():
@@ -81,3 +57,10 @@ def test_get_url_list_from_text():
     assert result == ["https://qiita.com/",
                       "https://ja.wikipedia.org/wiki/Python",
                       "https://www.google.com/"]
+
+
+def test_remove_twitter_url():
+    url1 = "https://example.com"
+    url2 = "https://twitter.com/i/web/status/1323781753203421184"
+    assert tweet_fav.remove_twitter_url(url1) == "https://example.com"
+    assert tweet_fav.remove_twitter_url(url2) is None

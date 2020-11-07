@@ -1,7 +1,11 @@
 import re
 
 import requests
+import urllib.request
+
+from requests.models import Response
 from requests_oauthlib import OAuth1
+from bs4 import BeautifulSoup
 
 import settings
 
@@ -13,42 +17,24 @@ OAUTH = OAuth1(
 )
 
 
-def get_like_lists(count, screen_name):
+def get_like_text_list(count, screen_name):
     """"
     Args:
         count(integer): tweet list length,
         screen_name(string): target user screen name
     return:
-        list of id(integer)
+        list of text(string)
     """
     url = "https://api.twitter.com/1.1/favorites/list.json?"
     params = {
         "count": count,
         "screen_name": screen_name
     }
-    response = requests.get(url, auth=OAUTH, params=params)
+    response = requests.get(url, auth=OAUTH, params=params, timeout=10)
 
     if response.status_code != 200:
         print(f'Getting Data Failed...(error code : {response.status_code} )')
-    return [record["id"] for record in response.json()]
-
-
-def get_tweet_from_id(tweet_id):
-    """
-    Args:
-        tweet_id(integer): target tweet's id
-    Returns:
-        string: the tweet text
-    """
-    url = f"https://api.twitter.com/2/tweets/{tweet_id}"
-    response = requests.get(url, headers={
-        "Authorization": "Bearer {}".format(settings.bearer_token)
-    })
-
-    if response.status_code != 200:
-        print(f'Getting Data Failed...(error code : {response.status_code} )')
-    response_json = response.json()
-    return response_json["data"]["text"]
+    return [record["text"] for record in response.json()]
 
 
 def get_url_list_from_text(tweet_text):
@@ -63,11 +49,40 @@ def get_url_list_from_text(tweet_text):
     return url_list
 
 
+def unrap_url(url):
+    """"
+    Args:
+        url(string): url
+    return:
+        url(string):unwrapped url
+    """
+    req = urllib.request.Request(url, method='HEAD')
+    response = urllib.request.urlopen(req)
+    return response.url
+
+
+def remove_twitter_url(url):
+    """"
+    Args:
+        url(string): url
+    return:
+        (Boolean): url | twitter url
+    """
+    if "https://twitter.com/" not in url:
+        return url
+
+
 if __name__ == "__main__":
-    likeIdlists = get_like_lists(7, "ryopenguin_beer")
-    idUrlList = []
-    for likeId in likeIdlists:
-        text = get_tweet_from_id(likeId)
-        urlList = get_url_list_from_text(text)
-        idUrlList.append({"tweetId": likeId, "urlList": urlList})
-    print(idUrlList)
+    text_list = get_like_text_list(10, "ryopenguin")
+    url_list_include_tweet = []
+    url_list_without_tweet = []
+    for text in text_list:
+        urls = get_url_list_from_text(text)
+        url_list_include_tweet += urls
+
+    for url in url_list_include_tweet:
+        unrapped_url = unrap_url(url)
+        unrapped_url_wo_twitter = remove_twitter_url(unrapped_url)
+        if unrapped_url_wo_twitter:
+            url_list_without_tweet.append(unrapped_url_wo_twitter)
+    print(url_list_without_tweet)
